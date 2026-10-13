@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Name That Country</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap">
+<style>
+/* Layout: one wide chart-style map on the left, a quiet answer panel on the right; stacks on phones. */
+:root {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --paper: #eef1f5;
+  --panel: #ffffff;
+  --line: #d3d9e2;
+  --ink: #16202e;
+  --ink-2: #54627a;
+  --sea: #cfe3f2;
+  --accent: #1f4fd6;
+  --on-accent: #ffffff;
+  --accent-soft: #e3eaff;
+  --good: #1d7a4c;
+  --land-0: #e8a64c;
+  --land-1: #6fb7a8;
+  --land-2: #d9768a;
+  --land-3: #8aa6e0;
+  --land-4: #b5c968;
+  --land-5: #c58ad9;
+  --land-6: #e0875a;
+  --land-x: #bcc6d3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1622;
+    --panel: #171f2e;
+    --line: #2a3548;
+    --ink: #e9eef7;
+    --ink-2: #9aa8c0;
+    --sea: #0c2236;
+    --accent: #8fb0ff;
+    --on-accent: #0b1730;
+    --accent-soft: #1f2d4d;
+    --good: #5ccb94;
+    --land-0: #c98a2f;
+    --land-1: #3f9488;
+    --land-2: #b9546a;
+    --land-3: #5d79c4;
+    --land-4: #8da143;
+    --land-5: #9b62b3;
+    --land-6: #bd6a3d;
+    --land-x: #3a4659;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1622;
+  --panel: #171f2e;
+  --line: #2a3548;
+  --ink: #e9eef7;
+  --ink-2: #9aa8c0;
+  --sea: #0c2236;
+  --accent: #8fb0ff;
+  --on-accent: #0b1730;
+  --accent-soft: #1f2d4d;
+  --good: #5ccb94;
+  --land-0: #c98a2f;
+  --land-1: #3f9488;
+  --land-2: #b9546a;
+  --land-3: #5d79c4;
+  --land-4: #8da143;
+  --land-5: #9b62b3;
+  --land-6: #bd6a3d;
+  --land-x: #3a4659;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+  padding-inline: 16px;
+  padding-block: 20px 32px;
+}
+.app { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+h1 { font: 700 clamp(28px, 4.2vw, 42px)/1.02 var(--font-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.sub { margin: 6px 0 0; color: var(--ink-2); max-width: 52ch; }
+.score { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.score b { font: 800 clamp(40px, 6vw, 60px)/1 var(--font-display); letter-spacing: -0.03em; }
+.score span { color: var(--ink-2); font-size: 14px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+
+.mapwrap {
+  position: relative;
+  background: var(--sea);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 1000 / 600;
+}
+#map { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+#map.dragging { cursor: grabbing; }
+.land { stroke: var(--sea); stroke-width: 0.6px; vector-effect: non-scaling-stroke; cursor: pointer; }
+.land.c0 { fill: var(--land-0); } .land.c1 { fill: var(--land-1); } .land.c2 { fill: var(--land-2); }
+.land.c3 { fill: var(--land-3); } .land.c4 { fill: var(--land-4); } .land.c5 { fill: var(--land-5); }
+.land.c6 { fill: var(--land-6); }
+.land.terr { fill: var(--land-x); }
+.land:hover { filter: brightness(1.12); }
+.land.right { stroke: var(--ink); stroke-width: 1.7px; }
+.land.missed { opacity: 0.42; }
+.dot { stroke: var(--ink-2); stroke-width: 1.2px; vector-effect: non-scaling-stroke; cursor: pointer; fill-opacity: 0.9; }
+.dot.c0 { fill: var(--land-0); } .dot.c1 { fill: var(--land-1); } .dot.c2 { fill: var(--land-2); }
+.dot.c3 { fill: var(--land-3); } .dot.c4 { fill: var(--land-4); } .dot.c5 { fill: var(--land-5); }
+.dot.c6 { fill: var(--land-6); }
+.dot.right { stroke: var(--ink); stroke-width: 2px; }
+.dot.missed { opacity: 0.42; }
+#selOutline { fill: none; stroke: var(--accent); stroke-width: 3px; vector-effect: non-scaling-stroke; pointer-events: none; stroke-linejoin: round; }
+#selDot { fill: none; stroke: var(--accent); stroke-width: 3px; vector-effect: non-scaling-stroke; pointer-events: none; }
+
+.zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.zoom button {
+  width: 36px; height: 36px; display: grid; place-items: center; padding: 0;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+  font: 600 18px/1 var(--font-body); cursor: pointer;
+}
+.zoom button:hover { border-color: var(--accent); }
+.hint { position: absolute; left: 10px; bottom: 8px; margin: 0; font-size: 12px; color: var(--ink-2); background: color-mix(in srgb, var(--sea) 80%, transparent); padding: 2px 6px; border-radius: 4px; pointer-events: none; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+.panel h2 { font: 700 20px/1.2 var(--font-display); margin: 0; text-wrap: balance; }
+.panel p { margin: 0; color: var(--ink-2); }
+.answer { font: 800 clamp(26px, 3.4vw, 34px)/1.1 var(--font-display); letter-spacing: -0.02em; margin: 0; overflow-wrap: anywhere; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button.btn {
+  font: 600 14px/1 var(--font-body); padding: 11px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+button.btn:hover { border-color: var(--accent); }
+button.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+button.btn.primary:hover { filter: brightness(1.08); }
+button.btn:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.note { font-size: 13px; }
+.panel .answer { color: var(--ink); }
+.panel .good { color: var(--good); font-weight: 600; }
+
+.bar { height: 8px; border-radius: 99px; background: var(--accent-soft); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.stats { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.legend { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); padding-top: 12px; border-top: 1px solid var(--line); }
+.legend div { display: flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.sw.multi { background: linear-gradient(90deg, var(--land-0) 0 20%, var(--land-1) 20% 40%, var(--land-2) 40% 60%, var(--land-3) 60% 80%, var(--land-5) 80%); }
+.sw.grey { background: var(--land-x); }
+.sw.ring { border-radius: 50%; border: 1.5px solid var(--ink-2); background: var(--land-1); width: 12px; height: 12px; margin: 1px; }
+.sw.outline { border: 2px solid var(--ink); background: var(--land-3); }
+.sw.fade { background: var(--land-2); opacity: 0.42; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Name That Country</h1>
+      <p class="sub">Click a country, guess its name to yourself, then check. You score the point, so be honest.</p>
+    </div>
+    <div class="score" aria-live="polite"><b id="score">0</b><span id="of">of 197 points</span></div>
+  </header>
+
+  <div class="stage">
+    <div class="mapwrap">
+      <svg id="map" viewBox="0 0 1000 600" role="application" aria-label="World map. Click a country to select it, drag to pan, scroll or pinch to zoom.">
+        <g id="world"></g>
+      </svg>
+      <div class="zoom">
+        <button type="button" id="zin" aria-label="Zoom in">+</button>
+        <button type="button" id="zout" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="zreset" aria-label="Reset view">&#8634;</button>
+      </div>
+      <p class="hint">Scroll or pinch to zoom. Drag to pan.</p>
+    </div>
+
+    <aside class="panel" aria-live="polite">
+      <div id="state"></div>
+      <div>
+        <div class="bar" role="progressbar" aria-label="Countries scored" aria-valuemin="0" aria-valuemax="197" id="pb"><i id="pbi"></i></div>
+        <div class="stats"><span id="st-right">0 right</span><span id="st-missed">0 missed</span><span id="st-left">197 to go</span></div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="random">Pick one for me</button>
+        <button type="button" class="btn" id="reset">Start over</button>
+      </div>
+      <p class="note" id="save"></p>
+      <div class="legend">
+        <div><span class="sw multi"></span>Coloured: a country to find</div>
+        <div><span class="sw grey"></span>Grey: territory or disputed, not scored</div>
+        <div><span class="sw ring"></span>Ring: a very small country</div>
+        <div><span class="sw outline"></span>Dark outline: you scored it</div>
+        <div><span class="sw fade"></span>Faded: you missed it, try again</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="countries.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
