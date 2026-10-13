@@ -197,6 +197,7 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
         <button type="button" class="btn" id="reset">Start over</button>
       </div>
       <p class="note" id="save"></p>
+      <div class="row"><button type="button" class="btn" id="auth" hidden></button></div>
       <div class="legend">
         <div><span class="sw multi"></span>Coloured: a country to find</div>
         <div><span class="sw grey"></span>Grey: territory or disputed, not scored</div>
@@ -208,6 +209,10 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="countries.js"></script>
 <script src="game.js"></script>
 </body>

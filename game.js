@@ -242,25 +242,35 @@
     if (e.key === "Escape") { sel = -1; confirmReset = false; drawSelection(); renderState(); }
   });
 
-  // ---- saving progress (kept in this browser's localStorage) ----------
+  // ---- saving progress -------------------------------------------------
+  // Always saved in this browser (localStorage). If firebase-config.js is filled in,
+  // signing in with Google also syncs progress through Firestore across devices.
   const STORE_KEY = "name-that-country:progress";
-  let saveOk = true;
+  let saveOk = true, cloud = null, cloudOk = true, firstSnap = true;
+  const authBtn = $("auth");
+
   function setSaveNote() {
-    $("save").textContent = saveOk
-      ? "Progress is saved in this browser."
-      : "Progress could not be saved in this browser.";
-  }
-  function save() {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ right: Array.from(right), missed: Array.from(missed) }));
-      saveOk = true;
-    } catch (err) {
-      saveOk = false;
+    $("save").textContent = !saveOk ? "Progress could not be saved in this browser."
+      : !cloud ? "Progress is saved in this browser."
+      : !cloud.user ? "Progress is saved in this browser. Sign in to sync it across devices."
+      : !cloudOk ? "Saved in this browser; syncing to your account failed just now."
+      : "Progress syncs to your Google account across devices.";
+    if (cloud) {
+      authBtn.hidden = false;
+      authBtn.textContent = cloud.user ? "Sign out" : "Sign in with Google to sync";
     }
+  }
+  function snapshot() { return { right: Array.from(right), missed: Array.from(missed) }; }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(snapshot())); saveOk = true; }
+    catch (err) { saveOk = false; }
+    pushCloud();
     setSaveNote();
   }
+  function keep(a) {
+    return new Set((Array.isArray(a) ? a : []).filter((n) => indexByName.has(n) && DATA[indexByName.get(n)].g));
+  }
   function applyProgress(d) {
-    const keep = (a) => new Set((Array.isArray(a) ? a : []).filter((n) => indexByName.has(n) && DATA[indexByName.get(n)].g));
     right = keep(d && d.right);
     missed = keep(d && d.missed);
     paintAll(); renderState();
@@ -272,8 +282,71 @@
     } catch (err) { saveOk = false; }
   }
 
+  // ---- optional cloud sync (Firebase) -----------------------------------
+  let writing = false, pending = false;
+  async function pushCloud() {
+    if (!cloud || !cloud.user) return;
+    pending = true;
+    if (writing) return;
+    writing = true;
+    try {
+      while (pending) {
+        pending = false;
+        await cloud.doc.set(snapshot());
+      }
+      cloudOk = true;
+    } catch (err) { cloudOk = false; pending = false; }
+    writing = false;
+    setSaveNote();
+  }
+  function startCloudSync(user) {
+    cloud.user = user;
+    cloud.doc = cloud.db.collection("progress").doc(user.uid);
+    firstSnap = true;
+    cloud.unsub = cloud.doc.onSnapshot((snap) => {
+      if (writing || pending || snap.metadata.hasPendingWrites) return;
+      const d = snap.exists ? snap.data() : null;
+      if (firstSnap) {
+        // First load after sign-in: merge, so offline progress is never lost.
+        firstSnap = false;
+        const r = new Set([...right, ...keep(d && d.right)]);
+        const m = new Set([...missed, ...keep(d && d.missed)]);
+        r.forEach((n) => m.delete(n));
+        right = r; missed = m;
+        paintAll(); renderState();
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(snapshot())); } catch (e) {}
+        pushCloud();
+      } else if (d) {
+        applyProgress(d);
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(snapshot())); } catch (e) {}
+      }
+    }, () => { cloudOk = false; setSaveNote(); });
+    setSaveNote();
+  }
+  function initCloud() {
+    const cfg = window.FIREBASE_CONFIG;
+    if (!window.firebase || !cfg || !cfg.apiKey || cfg.apiKey.indexOf("PASTE") === 0) return;
+    try {
+      firebase.initializeApp(cfg);
+      cloud = { db: firebase.firestore(), auth: firebase.auth(), user: null, doc: null, unsub: null };
+      cloud.auth.onAuthStateChanged((user) => {
+        if (cloud.unsub) { cloud.unsub(); cloud.unsub = null; }
+        cloud.user = null; cloud.doc = null;
+        if (user) startCloudSync(user); else setSaveNote();
+      });
+      authBtn.addEventListener("click", async () => {
+        try {
+          if (cloud.user) await cloud.auth.signOut();
+          else await cloud.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        } catch (err) { cloudOk = false; setSaveNote(); }
+      });
+      setSaveNote();
+    } catch (err) { cloud = null; }
+  }
+
   applyView();
   renderState();
   load();
   setSaveNote();
+  initCloud();
 })();
